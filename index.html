@@ -76,8 +76,11 @@
     .board-container {
       position: relative;
       margin-bottom: 15px;
+      width: 100%;
+      max-width: 360px;
     }
 
+    /* マス目の正方形固定（①の修正） */
     .board {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
@@ -85,8 +88,7 @@
       background: var(--panel-bg);
       padding: 8px;
       border-radius: 10px;
-      width: 330px;
-      height: 330px;
+      width: 100%;
     }
 
     .cell {
@@ -100,18 +102,21 @@
       user-select: none;
       position: relative;
       transition: all 0.2s;
+      aspect-ratio: 1 / 1; /* 正方形を維持 */
+      width: 100%;
     }
 
     .cell.p1 { background: rgba(59, 130, 246, 0.2); border: 2px solid var(--p1-color); }
     .cell.p2 { background: rgba(239, 68, 68, 0.2); border: 2px solid var(--p2-color); }
 
     .cell .kanji {
-      font-size: 1.6rem;
+      font-size: 1.5rem;
       font-weight: bold;
+      line-height: 1;
     }
 
     .cell .strokes {
-      font-size: 0.65rem;
+      font-size: 0.6rem;
       opacity: 0.8;
       position: absolute;
       bottom: 2px;
@@ -182,8 +187,52 @@
       margin-top: 10px;
       text-align: center;
       font-size: 0.9rem;
-      height: 1.2rem;
+      min-height: 1.2rem;
       color: var(--accent-color);
+    }
+
+    /* ゲーム終了用モーダル */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.8);
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+
+    .modal-content {
+      background: var(--panel-bg);
+      padding: 24px;
+      border-radius: 12px;
+      text-align: center;
+      max-width: 320px;
+      width: 90%;
+      border: 2px solid var(--accent-color);
+    }
+
+    .modal-title {
+      font-size: 1.5rem;
+      color: var(--accent-color);
+      margin-bottom: 12px;
+    }
+
+    .modal-result {
+      font-size: 1.1rem;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .restart-btn {
+      background: var(--accent-color);
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 1rem;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -215,10 +264,18 @@
 
   <div class="msg-box" id="msg"></div>
 
+  <!-- ゲーム終了時の結果画面 -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal-content">
+      <div class="modal-title">GAME OVER</div>
+      <div class="modal-result" id="modal-result"></div>
+      <button class="restart-btn" onclick="resetGame()">もう一度遊ぶ</button>
+    </div>
+  </div>
+
   <script>
-    // 部首・パーツ・漢字データベース (偏・作り・基本漢字)
+    // 漢字＆合体ルールデータベース
     const KANJI_DB = {
-      // 基本パーツ / へん / つくり
       "氵": { strokes: 3, merges: { "可": "河", "木": "沐", "工": "江", "青": "清", "谷": "渓", "各": "洛", "羊": "洋" } },
       "亻": { strokes: 2, merges: { "木": "休", "本": "体", "言": "信", "寺": "侍", "門": "们", "主": "住" } },
       "木": { strokes: 4, merges: { "木": "林", "目": "相", "反": "板", "毎": "梅", "対": "樹" } },
@@ -230,17 +287,15 @@
       "言": { strokes: 7, merges: { "成": "誠", "吾": "語", "寺": "詩" } },
       "糸": { strokes: 6, merges: { "会": "絵", "工": "紅", "吉": "結" } },
       
-      // つくり・右側用パーツ
-      "可": { strokes: 5, merges: {} },
-      "月": { strokes: 4, merges: {} },
-      "青": { strokes: 8, merges: {} },
-      "寺": { strokes: 6, merges: {} },
+      "可": { strokes: 5, merges: { "氵": "河", "扌": "打" } },
+      "月": { strokes: 4, merges: { "日": "明" } },
+      "青": { strokes: 8, merges: { "氵": "清" } },
+      "寺": { strokes: 6, merges: { "亻": "侍", "扌": "持", "日": "時", "土": "寺", "言": "詩" } },
       "分": { strokes: 4, merges: {} },
       "交": { strokes: 6, merges: {} },
-      "子": { strokes: 3, merges: {} },
-      "生": { strokes: 5, merges: {} },
+      "子": { strokes: 3, merges: { "女": "好" } },
+      "生": { strokes: 5, merges: { "日": "星", "女": "姓" } },
 
-      // 進化後の完成漢字（さらに合体可能なものも含む）
       "林": { strokes: 8, merges: { "木": "森" } },
       "明": { strokes: 8, merges: {} },
       "休": { strokes: 6, merges: {} },
@@ -256,22 +311,19 @@
       "森": { strokes: 12, merges: {} }
     };
 
-    // 初期出現候補プール
     const BASE_POOL = ["氵", "亻", "木", "扌", "日", "火", "土", "女", "言", "糸", "可", "月", "青", "寺", "分", "交", "子", "生"];
 
-    let boardState = Array(25).fill(null); // 5x5盤面
-    let currentPlayer = 1; // 1 or 2
+    let boardState = Array(25).fill(null);
+    let currentPlayer = 1;
     let selectedHandIndex = null;
     let currentHand = [];
 
-    // 初期化
     function initGame() {
       createBoard();
       generateHand();
       updateStatus();
     }
 
-    // 盤面生成
     function createBoard() {
       const boardEl = document.getElementById('board');
       boardEl.innerHTML = '';
@@ -284,16 +336,41 @@
       }
     }
 
-    // 重複のない手札生成（②の修正）
+    // 合体可能なパーツを含めるように最適化（②の修正）
     function generateHand() {
       currentHand = [];
       let pool = [...BASE_POOL];
-      
-      // ランダムに3つ重複なしで選択
+
+      // 盤上にある現在のプレイヤーの文字を取得
+      const myBoardChars = boardState
+        .filter(c => c && c.player === currentPlayer)
+        .map(c => c.char);
+
+      // 合体可能な候補パーツを探す
+      let synergicChars = [];
+      myBoardChars.forEach(char => {
+        Object.keys(KANJI_DB).forEach(key => {
+          if (KANJI_DB[key].merges && KANJI_DB[key].merges[char]) {
+            synergicChars.push(key);
+          }
+          if (KANJI_DB[char] && KANJI_DB[char].merges && KANJI_DB[char].merges[key]) {
+            synergicChars.push(key);
+          }
+        });
+      });
+
+      // 1つ目はできるだけ合体可能なパーツを優先配置
+      if (synergicChars.length > 0) {
+        const picked = synergicChars[Math.floor(Math.random() * synergicChars.length)];
+        currentHand.push(picked);
+        pool = pool.filter(c => c !== picked);
+      }
+
+      // 残りの手札を被りなしでランダム補充
       while (currentHand.length < 3 && pool.length > 0) {
         const randIndex = Math.floor(Math.random() * pool.length);
         currentHand.push(pool[randIndex]);
-        pool.splice(randIndex, 1); // 選択したものを除外して被り防止
+        pool.splice(randIndex, 1);
       }
 
       selectedHandIndex = null;
@@ -316,14 +393,12 @@
       });
     }
 
-    // マス目がクリックされた時の処理
     function handleCellClick(index) {
       if (selectedHandIndex === null) {
         showMsg("下に表示されている文字・パーツを選択してください！");
         return;
       }
 
-      // すでに文字があるマスには置けない
       if (boardState[index] !== null) {
         showMsg("空いているマスを選んでください。");
         return;
@@ -335,12 +410,17 @@
         player: currentPlayer
       };
 
-      // 隣接合体チェック (⑤の修正)
+      // 隣接合体チェック
       checkAndMergeAdjacent(index);
 
-      // 描画更新
       renderBoard();
       updateStatus();
+
+      // 勝敗・全マス埋まりチェック（③の修正）
+      if (boardState.every(cell => cell !== null)) {
+        endGame();
+        return;
+      }
 
       // ターン交代
       currentPlayer = currentPlayer === 1 ? 2 : 1;
@@ -349,7 +429,6 @@
       showMsg("");
     }
 
-    // 上下左右の自分の漢字と合体する処理 (⑤の修正)
     function checkAndMergeAdjacent(placedIdx) {
       const neighbors = getAdjacentIndices(placedIdx);
       let currentCell = boardState[placedIdx];
@@ -357,52 +436,46 @@
       for (let nIdx of neighbors) {
         let neighborCell = boardState[nIdx];
         
-        // 隣が自分のコマである場合のみ合体処理を行う
         if (neighborCell && neighborCell.player === currentCell.player) {
           const charA = currentCell.char;
           const charB = neighborCell.char;
 
-          // A -> B または B -> A の組み合わせをチェック
           let mergedChar = null;
-          if (KANJI_DB[charA] && KANJI_DB[charA].merges[charB]) {
+          if (KANJI_DB[charA] && KANJI_DB[charA].merges && KANJI_DB[charA].merges[charB]) {
             mergedChar = KANJI_DB[charA].merges[charB];
-          } else if (KANJI_DB[charB] && KANJI_DB[charB].merges[charA]) {
+          } else if (KANJI_DB[charB] && KANJI_DB[charB].merges && KANJI_DB[charB].merges[charA]) {
             mergedChar = KANJI_DB[charB].merges[charA];
           }
 
-          // 合体可能な場合
           if (mergedChar) {
             boardState[placedIdx] = { char: mergedChar, player: currentCell.player };
-            boardState[nIdx] = null; // 隣のマスは吸収されて空になる
+            boardState[nIdx] = null;
             
-            // アニメーション用クラス付与
             setTimeout(() => {
               const cells = document.querySelectorAll('.cell');
               if (cells[placedIdx]) cells[placedIdx].classList.add('merge-anim');
             }, 50);
 
             showMsg(`「${charA}」と「${charB}」が合体して「${mergedChar}」になった！`);
-            break; // 1ターンにつき1回合体
+            break;
           }
         }
       }
     }
 
-    // 隣接（上下左右）のインデックス取得
     function getAdjacentIndices(idx) {
       const row = Math.floor(idx / 5);
       const col = idx % 5;
       const list = [];
 
-      if (row > 0) list.push(idx - 5); // 上
-      if (row < 4) list.push(idx + 5); // 下
-      if (col > 0) list.push(idx - 1); // 左
-      if (col < 4) list.push(idx + 1); // 右
+      if (row > 0) list.push(idx - 5);
+      if (row < 4) list.push(idx + 5);
+      if (col > 0) list.push(idx - 1);
+      if (col < 4) list.push(idx + 1);
 
       return list;
     }
 
-    // 盤面描画
     function renderBoard() {
       const cells = document.querySelectorAll('.cell');
       boardState.forEach((data, i) => {
@@ -422,21 +495,22 @@
       });
     }
 
-    // 画数の計算＆ステータス更新 (⑦の修正)
-    function updateStatus() {
-      let p1Strokes = 0;
-      let p2Strokes = 0;
-
+    function getScores() {
+      let p1 = 0, p2 = 0;
       boardState.forEach(cell => {
         if (cell) {
           const strokes = KANJI_DB[cell.char] ? KANJI_DB[cell.char].strokes : 1;
-          if (cell.player === 1) p1Strokes += strokes;
-          if (cell.player === 2) p2Strokes += strokes;
+          if (cell.player === 1) p1 += strokes;
+          if (cell.player === 2) p2 += strokes;
         }
       });
+      return { p1, p2 };
+    }
 
-      document.getElementById('p1-score').innerText = `総画数: ${p1Strokes}画`;
-      document.getElementById('p2-score').innerText = `総画数: ${p2Strokes}画`;
+    function updateStatus() {
+      const { p1, p2 } = getScores();
+      document.getElementById('p1-score').innerText = `総画数: ${p1}画`;
+      document.getElementById('p2-score').innerText = `総画数: ${p2}画`;
     }
 
     function updatePlayerPanels() {
@@ -452,11 +526,44 @@
       }
     }
 
+    // ゲーム終了判定と結果表示（③の修正）
+    function endGame() {
+      const { p1, p2 } = getScores();
+      let winnerMsg = "";
+
+      if (p1 > p2) {
+        winnerMsg = `<span style="color: var(--p1-color); font-weight: bold;">プレイヤー1 (青)</span> の勝利！🏆`;
+      } else if (p2 > p1) {
+        winnerMsg = `<span style="color: var(--p2-color); font-weight: bold;">プレイヤー2 (赤)</span> の勝利！🏆`;
+      } else {
+        winnerMsg = `引き分け！🤝`;
+      }
+
+      const resultText = `
+        すべてのマスが埋まりました！<br><br>
+        プレイヤー1: ${p1}画<br>
+        プレイヤー2: ${p2}画<br><br>
+        ${winnerMsg}
+      `;
+
+      document.getElementById('modal-result').innerHTML = resultText;
+      document.getElementById('modal').style.display = 'flex';
+    }
+
+    function resetGame() {
+      boardState = Array(25).fill(null);
+      currentPlayer = 1;
+      document.getElementById('modal').style.display = 'none';
+      initGame();
+      renderBoard();
+      updatePlayerPanels();
+      showMsg("");
+    }
+
     function showMsg(txt) {
       document.getElementById('msg').innerText = txt;
     }
 
-    // 起動
     initGame();
   </script>
 </body>
