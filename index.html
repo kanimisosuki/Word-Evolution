@@ -59,10 +59,19 @@
       flex-direction: column;
       align-items: center;
       flex: 1;
+      padding: 4px;
+      border-radius: 6px;
+      transition: all 0.3s;
     }
 
-    .player-status.active {
-      border-bottom: 3px solid var(--accent-color);
+    .player-status.active.p1-status {
+      border: 2px solid var(--p1-color);
+      background: rgba(59, 130, 246, 0.15);
+    }
+
+    .player-status.active.p2-status {
+      border: 2px solid var(--p2-color);
+      background: rgba(239, 68, 68, 0.15);
     }
 
     .p1-text { color: var(--p1-color); font-weight: bold; }
@@ -80,7 +89,6 @@
       max-width: 360px;
     }
 
-    /* マス目の正方形固定（①の修正） */
     .board {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
@@ -102,12 +110,12 @@
       user-select: none;
       position: relative;
       transition: all 0.2s;
-      aspect-ratio: 1 / 1; /* 正方形を維持 */
+      aspect-ratio: 1 / 1;
       width: 100%;
     }
 
-    .cell.p1 { background: rgba(59, 130, 246, 0.2); border: 2px solid var(--p1-color); }
-    .cell.p2 { background: rgba(239, 68, 68, 0.2); border: 2px solid var(--p2-color); }
+    .cell.p1 { background: rgba(59, 130, 246, 0.25); border: 2px solid var(--p1-color); }
+    .cell.p2 { background: rgba(239, 68, 68, 0.25); border: 2px solid var(--p2-color); }
 
     .cell .kanji {
       font-size: 1.5rem;
@@ -117,7 +125,7 @@
 
     .cell .strokes {
       font-size: 0.6rem;
-      opacity: 0.8;
+      opacity: 0.85;
       position: absolute;
       bottom: 2px;
       right: 4px;
@@ -159,11 +167,10 @@
     .hand-btn {
       flex: 1;
       background: var(--empty-color);
-      border: 2px solid transparent;
       color: var(--text-color);
       padding: 8px;
       border-radius: 6px;
-      font-size: 1.2rem;
+      font-size: 1.3rem;
       font-weight: bold;
       cursor: pointer;
       display: flex;
@@ -172,15 +179,24 @@
       transition: all 0.2s;
     }
 
+    .hand-btn.p1-turn { border: 2px solid var(--p1-color); }
+    .hand-btn.p2-turn { border: 2px solid var(--p2-color); }
+
     .hand-btn span.sub {
       font-size: 0.65rem;
       font-weight: normal;
       color: #94a3b8;
+      margin-top: 2px;
     }
 
-    .hand-btn.selected {
-      border-color: var(--accent-color);
-      background: rgba(245, 158, 11, 0.2);
+    .hand-btn.selected.p1-turn {
+      background: rgba(59, 130, 246, 0.3);
+      box-shadow: 0 0 8px var(--p1-color);
+    }
+
+    .hand-btn.selected.p2-turn {
+      background: rgba(239, 68, 68, 0.3);
+      box-shadow: 0 0 8px var(--p2-color);
     }
 
     .msg-box {
@@ -191,7 +207,6 @@
       color: var(--accent-color);
     }
 
-    /* ゲーム終了用モーダル */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -244,11 +259,11 @@
 
   <div class="status-container">
     <div class="player-status p1-status active" id="p1-panel">
-      <span class="p1-text">プレイヤー1</span>
+      <span class="p1-text">プレイヤー1 (青)</span>
       <span class="score" id="p1-score">総画数: 0画</span>
     </div>
     <div class="player-status p2-status" id="p2-panel">
-      <span class="p2-text">プレイヤー2</span>
+      <span class="p2-text">プレイヤー2 (赤)</span>
       <span class="score" id="p2-score">総画数: 0画</span>
     </div>
   </div>
@@ -258,13 +273,12 @@
   </div>
 
   <div class="controls">
-    <div class="hand-title">配置するパーツ・文字を選択してください</div>
+    <div class="hand-title">配置する文字を選択してください</div>
     <div class="hand-options" id="hand"></div>
   </div>
 
   <div class="msg-box" id="msg"></div>
 
-  <!-- ゲーム終了時の結果画面 -->
   <div class="modal-overlay" id="modal">
     <div class="modal-content">
       <div class="modal-title">GAME OVER</div>
@@ -274,30 +288,38 @@
   </div>
 
   <script>
-    // 漢字＆合体ルールデータベース
+    // 正しい組み合わせのみに厳選した漢字データベース
     const KANJI_DB = {
-      "氵": { strokes: 3, merges: { "可": "河", "木": "沐", "工": "江", "青": "清", "谷": "渓", "各": "洛", "羊": "洋" } },
-      "亻": { strokes: 2, merges: { "木": "休", "本": "体", "言": "信", "寺": "侍", "門": "们", "主": "住" } },
-      "木": { strokes: 4, merges: { "木": "林", "目": "相", "反": "板", "毎": "梅", "対": "樹" } },
-      "扌": { strokes: 3, merges: { "手": "摩", "目": "看", "言": "誓", "寺": "持", "立": "拉", "可": "打" } },
-      "日": { strokes: 4, merges: { "月": "明", "寺": "時", "生": "星", "立": "音", "青": "晴" } },
-      "火": { strokes: 4, merges: { "因": "烟", "丁": "灯", "田": "畑" } },
-      "土": { strokes: 3, merges: { "成": "城", "也": "地", "寸": "寺" } },
-      "女": { strokes: 3, merges: { "子": "好", "少": "妙", "生": "姓" } },
-      "言": { strokes: 7, merges: { "成": "誠", "吾": "語", "寺": "詩" } },
-      "糸": { strokes: 6, merges: { "会": "絵", "工": "紅", "吉": "結" } },
-      
+      // 基本パーツ・へん
+      "氵": { strokes: 3, merges: { "可": "河", "青": "清", "工": "江" } },
+      "亻": { strokes: 2, merges: { "木": "休", "言": "信", "寺": "侍" } },
+      "木": { strokes: 4, merges: { "木": "林", "目": "相" } },
+      "扌": { strokes: 3, merges: { "寺": "持", "可": "打" } },
+      "日": { strokes: 4, merges: { "月": "明", "青": "晴", "寺": "時" } },
+      "土": { strokes: 3, merges: { "也": "地", "成": "城" } },
+      "女": { strokes: 3, merges: { "子": "好", "少": "妙" } },
+      "言": { strokes: 7, merges: { "成": "誠", "寺": "詩" } },
+      "糸": { strokes: 6, merges: { "会": "絵", "吉": "結" } },
+
+      // つくり・右側パーツ
       "可": { strokes: 5, merges: { "氵": "河", "扌": "打" } },
       "月": { strokes: 4, merges: { "日": "明" } },
-      "青": { strokes: 8, merges: { "氵": "清" } },
-      "寺": { strokes: 6, merges: { "亻": "侍", "扌": "持", "日": "時", "土": "寺", "言": "詩" } },
-      "分": { strokes: 4, merges: {} },
-      "交": { strokes: 6, merges: {} },
+      "青": { strokes: 8, merges: { "氵": "清", "日": "晴" } },
+      "寺": { strokes: 6, merges: { "亻": "侍", "扌": "持", "日": "時", "言": "詩" } },
       "子": { strokes: 3, merges: { "女": "好" } },
-      "生": { strokes: 5, merges: { "日": "星", "女": "姓" } },
+      "少": { strokes: 4, merges: { "女": "妙" } },
+      "成": { strokes: 6, merges: { "土": "城", "言": "誠" } },
+      "也": { strokes: 3, merges: { "土": "地" } },
+      "会": { strokes: 6, merges: { "糸": "絵" } },
+      "吉": { strokes: 6, merges: { "糸": "結" } },
+      "工": { strokes: 3, merges: { "氵": "江" } },
+      "目": { strokes: 5, merges: { "木": "相" } },
 
+      // 進化後の完成漢字（さらに合体可能なものも含む）
       "林": { strokes: 8, merges: { "木": "森" } },
+      "森": { strokes: 12, merges: {} },
       "明": { strokes: 8, merges: {} },
+      "晴": { strokes: 12, merges: {} },
       "休": { strokes: 6, merges: {} },
       "好": { strokes: 6, merges: {} },
       "清": { strokes: 11, merges: {} },
@@ -306,12 +328,19 @@
       "信": { strokes: 9, merges: {} },
       "地": { strokes: 6, merges: {} },
       "持": { strokes: 9, merges: {} },
-      "語": { strokes: 14, merges: {} },
       "絵": { strokes: 12, merges: {} },
-      "森": { strokes: 12, merges: {} }
+      "結": { strokes: 12, merges: {} },
+      "妙": { strokes: 7, merges: {} },
+      "城": { strokes: 9, merges: {} },
+      "誠": { strokes: 13, merges: {} },
+      "詩": { strokes: 13, merges: {} },
+      "侍": { strokes: 8, merges: {} },
+      "打": { strokes: 5, merges: {} },
+      "江": { strokes: 6, merges: {} },
+      "相": { strokes: 9, merges: {} }
     };
 
-    const BASE_POOL = ["氵", "亻", "木", "扌", "日", "火", "土", "女", "言", "糸", "可", "月", "青", "寺", "分", "交", "子", "生"];
+    const BASE_POOL = ["氵", "亻", "木", "扌", "日", "土", "女", "言", "糸", "可", "月", "青", "寺", "子", "少", "成", "也", "会", "吉", "工", "目"];
 
     let boardState = Array(25).fill(null);
     let currentPlayer = 1;
@@ -336,19 +365,13 @@
       }
     }
 
-    // 合体可能なパーツを含めるように最適化（②の修正）
     function generateHand() {
       currentHand = [];
       let pool = [...BASE_POOL];
 
-      // 盤上にある現在のプレイヤーの文字を取得
-      const myBoardChars = boardState
-        .filter(c => c && c.player === currentPlayer)
-        .map(c => c.char);
-
-      // 合体可能な候補パーツを探す
+      const allBoardChars = boardState.filter(c => c !== null).map(c => c.char);
       let synergicChars = [];
-      myBoardChars.forEach(char => {
+      allBoardChars.forEach(char => {
         Object.keys(KANJI_DB).forEach(key => {
           if (KANJI_DB[key].merges && KANJI_DB[key].merges[char]) {
             synergicChars.push(key);
@@ -359,17 +382,22 @@
         });
       });
 
-      // 1つ目はできるだけ合体可能なパーツを優先配置
-      if (synergicChars.length > 0) {
-        const picked = synergicChars[Math.floor(Math.random() * synergicChars.length)];
-        currentHand.push(picked);
-        pool = pool.filter(c => c !== picked);
+      while (currentHand.length < 2 && synergicChars.length > 0) {
+        const randIdx = Math.floor(Math.random() * synergicChars.length);
+        const picked = synergicChars[randIdx];
+        if (!currentHand.includes(picked)) {
+          currentHand.push(picked);
+          pool = pool.filter(c => c !== picked);
+        }
+        synergicChars.splice(randIdx, 1);
       }
 
-      // 残りの手札を被りなしでランダム補充
       while (currentHand.length < 3 && pool.length > 0) {
         const randIndex = Math.floor(Math.random() * pool.length);
-        currentHand.push(pool[randIndex]);
+        const picked = pool[randIndex];
+        if (!currentHand.includes(picked)) {
+          currentHand.push(picked);
+        }
         pool.splice(randIndex, 1);
       }
 
@@ -380,9 +408,11 @@
     function renderHand() {
       const handEl = document.getElementById('hand');
       handEl.innerHTML = '';
+      const turnClass = currentPlayer === 1 ? 'p1-turn' : 'p2-turn';
+
       currentHand.forEach((char, idx) => {
         const btn = document.createElement('button');
-        btn.className = `hand-btn ${selectedHandIndex === idx ? 'selected' : ''}`;
+        btn.className = `hand-btn ${turnClass} ${selectedHandIndex === idx ? 'selected' : ''}`;
         const strokes = KANJI_DB[char] ? KANJI_DB[char].strokes : 1;
         btn.innerHTML = `${char}<span class="sub">${strokes}画</span>`;
         btn.addEventListener('click', () => {
@@ -395,7 +425,7 @@
 
     function handleCellClick(index) {
       if (selectedHandIndex === null) {
-        showMsg("下に表示されている文字・パーツを選択してください！");
+        showMsg("下に表示されている文字を選択してください！");
         return;
       }
 
@@ -410,19 +440,16 @@
         player: currentPlayer
       };
 
-      // 隣接合体チェック
       checkAndMergeAdjacent(index);
 
       renderBoard();
       updateStatus();
 
-      // 勝敗・全マス埋まりチェック（③の修正）
       if (boardState.every(cell => cell !== null)) {
         endGame();
         return;
       }
 
-      // ターン交代
       currentPlayer = currentPlayer === 1 ? 2 : 1;
       generateHand();
       updatePlayerPanels();
@@ -436,7 +463,7 @@
       for (let nIdx of neighbors) {
         let neighborCell = boardState[nIdx];
         
-        if (neighborCell && neighborCell.player === currentCell.player) {
+        if (neighborCell) {
           const charA = currentCell.char;
           const charB = neighborCell.char;
 
@@ -526,7 +553,6 @@
       }
     }
 
-    // ゲーム終了判定と結果表示（③の修正）
     function endGame() {
       const { p1, p2 } = getScores();
       let winnerMsg = "";
