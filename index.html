@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Word Evolution</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --panel-bg: #1e293b;
+      --p1-color: #3b82f6;
+      --p2-color: #ef4444;
+      --empty-color: #334155;
+      --text-color: #f8fafc;
+      --accent-color: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 10px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      color: var(--accent-color);
+      letter-spacing: 2px;
+    }
+
+    .status-container {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 10px;
+      background: var(--panel-bg);
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    .player-status {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+    }
+
+    .player-status.active {
+      border-bottom: 3px solid var(--accent-color);
+    }
+
+    .p1-text { color: var(--p1-color); font-weight: bold; }
+    .p2-text { color: var(--p2-color); font-weight: bold; }
+
+    .score {
+      font-size: 0.9rem;
+      margin-top: 4px;
+    }
+
+    .board-container {
+      position: relative;
+      margin-bottom: 15px;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-gap: 6px;
+      background: var(--panel-bg);
+      padding: 8px;
+      border-radius: 10px;
+      width: 330px;
+      height: 330px;
+    }
+
+    .cell {
+      background: var(--empty-color);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .cell.p1 { background: rgba(59, 130, 246, 0.2); border: 2px solid var(--p1-color); }
+    .cell.p2 { background: rgba(239, 68, 68, 0.2); border: 2px solid var(--p2-color); }
+
+    .cell .kanji {
+      font-size: 1.6rem;
+      font-weight: bold;
+    }
+
+    .cell .strokes {
+      font-size: 0.65rem;
+      opacity: 0.8;
+      position: absolute;
+      bottom: 2px;
+      right: 4px;
+    }
+
+    .cell.merge-anim {
+      animation: pulse 0.4s ease-in-out;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); filter: brightness(1); }
+      50% { transform: scale(1.15); filter: brightness(1.8); }
+      100% { transform: scale(1); filter: brightness(1); }
+    }
+
+    .controls {
+      width: 100%;
+      max-width: 400px;
+      background: var(--panel-bg);
+      padding: 12px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .hand-title {
+      font-size: 0.85rem;
+      text-align: center;
+      color: #94a3b8;
+    }
+
+    .hand-options {
+      display: flex;
+      justify-content: space-around;
+      gap: 8px;
+    }
+
+    .hand-btn {
+      flex: 1;
+      background: var(--empty-color);
+      border: 2px solid transparent;
+      color: var(--text-color);
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: all 0.2s;
+    }
+
+    .hand-btn span.sub {
+      font-size: 0.65rem;
+      font-weight: normal;
+      color: #94a3b8;
+    }
+
+    .hand-btn.selected {
+      border-color: var(--accent-color);
+      background: rgba(245, 158, 11, 0.2);
+    }
+
+    .msg-box {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 0.9rem;
+      height: 1.2rem;
+      color: var(--accent-color);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Word Evolution</h1>
+  </header>
+
+  <div class="status-container">
+    <div class="player-status p1-status active" id="p1-panel">
+      <span class="p1-text">プレイヤー1</span>
+      <span class="score" id="p1-score">総画数: 0画</span>
+    </div>
+    <div class="player-status p2-status" id="p2-panel">
+      <span class="p2-text">プレイヤー2</span>
+      <span class="score" id="p2-score">総画数: 0画</span>
+    </div>
+  </div>
+
+  <div class="board-container">
+    <div class="board" id="board"></div>
+  </div>
+
+  <div class="controls">
+    <div class="hand-title">配置するパーツ・文字を選択してください</div>
+    <div class="hand-options" id="hand"></div>
+  </div>
+
+  <div class="msg-box" id="msg"></div>
+
+  <script>
+    // 部首・パーツ・漢字データベース (偏・作り・基本漢字)
+    const KANJI_DB = {
+      // 基本パーツ / へん / つくり
+      "氵": { strokes: 3, merges: { "可": "河", "木": "沐", "工": "江", "青": "清", "谷": "渓", "各": "洛", "羊": "洋" } },
+      "亻": { strokes: 2, merges: { "木": "休", "本": "体", "言": "信", "寺": "侍", "門": "们", "主": "住" } },
+      "木": { strokes: 4, merges: { "木": "林", "目": "相", "反": "板", "毎": "梅", "対": "樹" } },
+      "扌": { strokes: 3, merges: { "手": "摩", "目": "看", "言": "誓", "寺": "持", "立": "拉", "可": "打" } },
+      "日": { strokes: 4, merges: { "月": "明", "寺": "時", "生": "星", "立": "音" } },
+      "火": { strokes: 4, merges: { "因": "烟", "丁": "灯", "田": "畑" } },
+      "土": { strokes: 3, merges: { "成": "城", "也": "地", "寸": "寺" } },
+      "女": { strokes: 3, merges: { "子": "好", "少": "妙", "生": "姓" } },
+      "言": { strokes: 7, merges: { "成": "誠", "吾": "語", "寺": "詩" } },
+      "糸": { strokes: 6, merges: { "会": "絵", "工": "紅", "吉": "結" } },
+      
+      // つくり・右側用パーツ
+      "可": { strokes: 5, merges: {} },
+      "月": { strokes: 4, merges: {} },
+      "青": { strokes: 8, merges: {} },
+      "寺": { strokes: 6, merges: {} },
+      "分": { strokes: 4, merges: {} },
+      "交": { strokes: 6, merges: {} },
+      "子": { strokes: 3, merges: {} },
+      "生": { strokes: 5, merges: {} },
+
+      // 進化後の完成漢字（さらに合体可能なものも含む）
+      "林": { strokes: 8, merges: { "木": "森" } },
+      "明": { strokes: 8, merges: {} },
+      "休": { strokes: 6, merges: {} },
+      "好": { strokes: 6, merges: {} },
+      "清": { strokes: 11, merges: {} },
+      "河": { strokes: 8, merges: {} },
+      "時": { strokes: 10, merges: {} },
+      "信": { strokes: 9, merges: {} },
+      "地": { strokes: 6, merges: {} },
+      "持": { strokes: 9, merges: {} },
+      "語": { strokes: 14, merges: {} },
+      "絵": { strokes: 12, merges: {} },
+      "森": { strokes: 12, merges: {} }
+    };
+
+    // 初期出現候補プール
+    const BASE_POOL = ["氵", "亻", "木", "扌", "日", "火", "土", "女", "言", "糸", "可", "月", "青", "寺", "分", "交", "子", "生"];
+
+    let boardState = Array(25).fill(null); // 5x5盤面
+    let currentPlayer = 1; // 1 or 2
+    let selectedHandIndex = null;
+    let currentHand = [];
+
+    // 初期化
+    function initGame() {
+      createBoard();
+      generateHand();
+      updateStatus();
+    }
+
+    // 盤面生成
+    function createBoard() {
+      const boardEl = document.getElementById('board');
+      boardEl.innerHTML = '';
+      for (let i = 0; i < 25; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.index = i;
+        cell.addEventListener('click', () => handleCellClick(i));
+        boardEl.appendChild(cell);
+      }
+    }
+
+    // 重複のない手札生成（②の修正）
+    function generateHand() {
+      currentHand = [];
+      let pool = [...BASE_POOL];
+      
+      // ランダムに3つ重複なしで選択
+      while (currentHand.length < 3 && pool.length > 0) {
+        const randIndex = Math.floor(Math.random() * pool.length);
+        currentHand.push(pool[randIndex]);
+        pool.splice(randIndex, 1); // 選択したものを除外して被り防止
+      }
+
+      selectedHandIndex = null;
+      renderHand();
+    }
+
+    function renderHand() {
+      const handEl = document.getElementById('hand');
+      handEl.innerHTML = '';
+      currentHand.forEach((char, idx) => {
+        const btn = document.createElement('button');
+        btn.className = `hand-btn ${selectedHandIndex === idx ? 'selected' : ''}`;
+        const strokes = KANJI_DB[char] ? KANJI_DB[char].strokes : 1;
+        btn.innerHTML = `${char}<span class="sub">${strokes}画</span>`;
+        btn.addEventListener('click', () => {
+          selectedHandIndex = idx;
+          renderHand();
+        });
+        handEl.appendChild(btn);
+      });
+    }
+
+    // マス目がクリックされた時の処理
+    function handleCellClick(index) {
+      if (selectedHandIndex === null) {
+        showMsg("下に表示されている文字・パーツを選択してください！");
+        return;
+      }
+
+      // すでに文字があるマスには置けない
+      if (boardState[index] !== null) {
+        showMsg("空いているマスを選んでください。");
+        return;
+      }
+
+      const placedChar = currentHand[selectedHandIndex];
+      boardState[index] = {
+        char: placedChar,
+        player: currentPlayer
+      };
+
+      // 隣接合体チェック (⑤の修正)
+      checkAndMergeAdjacent(index);
+
+      // 描画更新
+      renderBoard();
+      updateStatus();
+
+      // ターン交代
+      currentPlayer = currentPlayer === 1 ? 2 : 1;
+      generateHand();
+      updatePlayerPanels();
+      showMsg("");
+    }
+
+    // 上下左右の自分の漢字と合体する処理 (⑤の修正)
+    function checkAndMergeAdjacent(placedIdx) {
+      const neighbors = getAdjacentIndices(placedIdx);
+      let currentCell = boardState[placedIdx];
+
+      for (let nIdx of neighbors) {
+        let neighborCell = boardState[nIdx];
+        
+        // 隣が自分のコマである場合のみ合体処理を行う
+        if (neighborCell && neighborCell.player === currentCell.player) {
+          const charA = currentCell.char;
+          const charB = neighborCell.char;
+
+          // A -> B または B -> A の組み合わせをチェック
+          let mergedChar = null;
+          if (KANJI_DB[charA] && KANJI_DB[charA].merges[charB]) {
+            mergedChar = KANJI_DB[charA].merges[charB];
+          } else if (KANJI_DB[charB] && KANJI_DB[charB].merges[charA]) {
+            mergedChar = KANJI_DB[charB].merges[charA];
+          }
+
+          // 合体可能な場合
+          if (mergedChar) {
+            boardState[placedIdx] = { char: mergedChar, player: currentCell.player };
+            boardState[nIdx] = null; // 隣のマスは吸収されて空になる
+            
+            // アニメーション用クラス付与
+            setTimeout(() => {
+              const cells = document.querySelectorAll('.cell');
+              if (cells[placedIdx]) cells[placedIdx].classList.add('merge-anim');
+            }, 50);
+
+            showMsg(`「${charA}」と「${charB}」が合体して「${mergedChar}」になった！`);
+            break; // 1ターンにつき1回合体
+          }
+        }
+      }
+    }
+
+    // 隣接（上下左右）のインデックス取得
+    function getAdjacentIndices(idx) {
+      const row = Math.floor(idx / 5);
+      const col = idx % 5;
+      const list = [];
+
+      if (row > 0) list.push(idx - 5); // 上
+      if (row < 4) list.push(idx + 5); // 下
+      if (col > 0) list.push(idx - 1); // 左
+      if (col < 4) list.push(idx + 1); // 右
+
+      return list;
+    }
+
+    // 盤面描画
+    function renderBoard() {
+      const cells = document.querySelectorAll('.cell');
+      boardState.forEach((data, i) => {
+        const cell = cells[i];
+        cell.className = 'cell';
+        
+        if (data) {
+          cell.classList.add(`p${data.player}`);
+          const strokes = KANJI_DB[data.char] ? KANJI_DB[data.char].strokes : 1;
+          cell.innerHTML = `
+            <span class="kanji">${data.char}</span>
+            <span class="strokes">${strokes}画</span>
+          `;
+        } else {
+          cell.innerHTML = '';
+        }
+      });
+    }
+
+    // 画数の計算＆ステータス更新 (⑦の修正)
+    function updateStatus() {
+      let p1Strokes = 0;
+      let p2Strokes = 0;
+
+      boardState.forEach(cell => {
+        if (cell) {
+          const strokes = KANJI_DB[cell.char] ? KANJI_DB[cell.char].strokes : 1;
+          if (cell.player === 1) p1Strokes += strokes;
+          if (cell.player === 2) p2Strokes += strokes;
+        }
+      });
+
+      document.getElementById('p1-score').innerText = `総画数: ${p1Strokes}画`;
+      document.getElementById('p2-score').innerText = `総画数: ${p2Strokes}画`;
+    }
+
+    function updatePlayerPanels() {
+      const p1Panel = document.getElementById('p1-panel');
+      const p2Panel = document.getElementById('p2-panel');
+
+      if (currentPlayer === 1) {
+        p1Panel.classList.add('active');
+        p2Panel.classList.remove('active');
+      } else {
+        p2Panel.classList.add('active');
+        p1Panel.classList.remove('active');
+      }
+    }
+
+    function showMsg(txt) {
+      document.getElementById('msg').innerText = txt;
+    }
+
+    // 起動
+    initGame();
+  </script>
+</body>
+</html>
