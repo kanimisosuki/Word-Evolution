@@ -118,13 +118,13 @@
     .cell.p2 { background: rgba(239, 68, 68, 0.25); border: 2px solid var(--p2-color); }
 
     .cell .kanji {
-      font-size: 1.5rem;
+      font-size: 1.4rem;
       font-weight: bold;
       line-height: 1;
     }
 
     .cell .strokes {
-      font-size: 0.6rem;
+      font-size: 0.55rem;
       opacity: 0.85;
       position: absolute;
       bottom: 2px;
@@ -137,7 +137,7 @@
 
     @keyframes pulse {
       0% { transform: scale(1); filter: brightness(1); }
-      50% { transform: scale(1.15); filter: brightness(1.8); }
+      50% { transform: scale(1.2); filter: brightness(2); }
       100% { transform: scale(1); filter: brightness(1); }
     }
 
@@ -170,7 +170,7 @@
       color: var(--text-color);
       padding: 8px;
       border-radius: 6px;
-      font-size: 1.3rem;
+      font-size: 1.2rem;
       font-weight: bold;
       cursor: pointer;
       display: flex;
@@ -288,34 +288,49 @@
   </div>
 
   <script>
-    // 正しい組み合わせのみに厳選した漢字データベース
     const KANJI_DB = {
       // 基本パーツ・へん
-      "氵": { strokes: 3, merges: { "可": "河", "青": "清", "工": "江" } },
-      "亻": { strokes: 2, merges: { "木": "休", "言": "信", "寺": "侍" } },
-      "木": { strokes: 4, merges: { "木": "林", "目": "相" } },
-      "扌": { strokes: 3, merges: { "寺": "持", "可": "打" } },
-      "日": { strokes: 4, merges: { "月": "明", "青": "晴", "寺": "時" } },
-      "土": { strokes: 3, merges: { "也": "地", "成": "城" } },
-      "女": { strokes: 3, merges: { "子": "好", "少": "妙" } },
-      "言": { strokes: 7, merges: { "成": "誠", "寺": "詩" } },
-      "糸": { strokes: 6, merges: { "会": "絵", "吉": "結" } },
+      "氵": { strokes: 3, merges: { "可": "河", "青": "清", "工": "江", "木": "沐", "各": "洛" } },
+      "亻": { strokes: 2, merges: { "木": "休", "言": "信", "寺": "侍", "主": "住", "本": "体" } },
+      "木": { strokes: 4, merges: { "木": "林", "目": "相", "氵": "沐", "亻": "休", "毎": "梅" } },
+      "扌": { strokes: 3, merges: { "寺": "持", "可": "打", "手": "摩" } },
+      "日": { strokes: 4, merges: { "月": "明", "青": "晴", "寺": "時", "生": "星", "立": "音" } },
+      "土": { strokes: 3, merges: { "也": "地", "成": "城", "寸": "寺" } },
+      "女": { strokes: 3, merges: { "子": "好", "少": "妙", "生": "姓" } },
+      "言": { strokes: 7, merges: { "成": "誠", "寺": "詩", "吾": "語" } },
+      "糸": { strokes: 6, merges: { "会": "絵", "吉": "結", "工": "紅" } },
+      "月": { strokes: 4, merges: { "日": "明", "龍": "朧" } },
+      "鹿": { strokes: 11, merges: { "其": "麒", "粦": "麟" } },
+      "龍": { strokes: 16, merges: { "月": "朧", "龍": "龘" } },
+      "魚": { strokes: 11, merges: { "京": "鯨" } },
+      "車": { strokes: 7, merges: { "車": "䡛", "䡛": "轟" } },
 
-      // つくり・右側パーツ
+      // 右側パーツ・つくり強化
       "可": { strokes: 5, merges: { "氵": "河", "扌": "打" } },
-      "月": { strokes: 4, merges: { "日": "明" } },
       "青": { strokes: 8, merges: { "氵": "清", "日": "晴" } },
-      "寺": { strokes: 6, merges: { "亻": "侍", "扌": "持", "日": "時", "言": "詩" } },
+      "寺": { strokes: 6, merges: { "亻": "侍", "扌": "持", "日": "時", "言": "詩", "土": "寺" } },
       "子": { strokes: 3, merges: { "女": "好" } },
       "少": { strokes: 4, merges: { "女": "妙" } },
       "成": { strokes: 6, merges: { "土": "城", "言": "誠" } },
       "也": { strokes: 3, merges: { "土": "地" } },
       "会": { strokes: 6, merges: { "糸": "絵" } },
       "吉": { strokes: 6, merges: { "糸": "結" } },
-      "工": { strokes: 3, merges: { "氵": "江" } },
+      "工": { strokes: 3, merges: { "氵": "江", "糸": "紅" } },
       "目": { strokes: 5, merges: { "木": "相" } },
+      "其": { strokes: 8, merges: { "鹿": "麒" } },
+      "粦": { strokes: 14, merges: { "鹿": "麟" } },
+      "京": { strokes: 8, merges: { "魚": "鯨" } },
+      "毎": { strokes: 6, merges: { "木": "梅" } },
+      "吾": { strokes: 7, merges: { "言": "語" } },
 
-      // 進化後の完成漢字（さらに合体可能なものも含む）
+      // 進化後漢字
+      "䡛": { strokes: 14, merges: { "車": "轟" } },
+      "麒": { strokes: 21, merges: {} },
+      "麟": { strokes: 24, merges: {} },
+      "朧": { strokes: 21, merges: {} },
+      "龘": { strokes: 36, merges: {} },
+      "鯨": { strokes: 19, merges: {} },
+      "轟": { strokes: 21, merges: {} },
       "林": { strokes: 8, merges: { "木": "森" } },
       "森": { strokes: 12, merges: {} },
       "明": { strokes: 8, merges: {} },
@@ -337,10 +352,16 @@
       "侍": { strokes: 8, merges: {} },
       "打": { strokes: 5, merges: {} },
       "江": { strokes: 6, merges: {} },
-      "相": { strokes: 9, merges: {} }
+      "相": { strokes: 9, merges: {} },
+      "沐": { strokes: 7, merges: {} },
+      "住": { strokes: 7, merges: {} },
+      "梅": { strokes: 10, merges: {} },
+      "語": { strokes: 14, merges: {} },
+      "紅": { strokes: 9, merges: {} },
+      "体": { strokes: 7, merges: {} }
     };
 
-    const BASE_POOL = ["氵", "亻", "木", "扌", "日", "土", "女", "言", "糸", "可", "月", "青", "寺", "子", "少", "成", "也", "会", "吉", "工", "目"];
+    const BASE_POOL = ["氵", "亻", "木", "扌", "日", "土", "女", "言", "糸", "月", "可", "青", "寺", "子", "少", "成", "也", "会", "吉", "工", "目", "鹿", "龍", "魚", "車", "其", "粦", "京", "毎", "吾"];
 
     let boardState = Array(25).fill(null);
     let currentPlayer = 1;
@@ -365,22 +386,22 @@
       }
     }
 
+    // 合体確定（手札に合体パーツを確実に優先出現）
     function generateHand() {
       currentHand = [];
       let pool = [...BASE_POOL];
 
       const allBoardChars = boardState.filter(c => c !== null).map(c => c.char);
       let synergicChars = [];
+
       allBoardChars.forEach(char => {
         Object.keys(KANJI_DB).forEach(key => {
-          if (KANJI_DB[key].merges && KANJI_DB[key].merges[char]) {
-            synergicChars.push(key);
-          }
-          if (KANJI_DB[char] && KANJI_DB[char].merges && KANJI_DB[char].merges[key]) {
-            synergicChars.push(key);
-          }
+          if (KANJI_DB[key].merges && KANJI_DB[key].merges[char]) synergicChars.push(key);
+          if (KANJI_DB[char] && KANJI_DB[char].merges && KANJI_DB[char].merges[key]) synergicChars.push(key);
         });
       });
+
+      synergicChars = [...new Set(synergicChars)];
 
       while (currentHand.length < 2 && synergicChars.length > 0) {
         const randIdx = Math.floor(Math.random() * synergicChars.length);
@@ -440,7 +461,8 @@
         player: currentPlayer
       };
 
-      checkAndMergeAdjacent(index);
+      // 上下左右のみ・連鎖合体システム
+      checkAndMergeAdjacentChain(index);
 
       renderBoard();
       updateStatus();
@@ -453,52 +475,68 @@
       currentPlayer = currentPlayer === 1 ? 2 : 1;
       generateHand();
       updatePlayerPanels();
-      showMsg("");
     }
 
-    function checkAndMergeAdjacent(placedIdx) {
-      const neighbors = getAdjacentIndices(placedIdx);
-      let currentCell = boardState[placedIdx];
+    // 上下左右（4方向）のみの連鎖合体処理
+    function checkAndMergeAdjacentChain(placedIdx) {
+      let mergedAny = false;
+      let targetIdx = placedIdx;
 
-      for (let nIdx of neighbors) {
-        let neighborCell = boardState[nIdx];
-        
-        if (neighborCell) {
-          const charA = currentCell.char;
-          const charB = neighborCell.char;
+      while (true) {
+        const neighbors = getAdjacent4Indices(targetIdx);
+        let currentCell = boardState[targetIdx];
+        let mergedInThisStep = false;
 
-          let mergedChar = null;
-          if (KANJI_DB[charA] && KANJI_DB[charA].merges && KANJI_DB[charA].merges[charB]) {
-            mergedChar = KANJI_DB[charA].merges[charB];
-          } else if (KANJI_DB[charB] && KANJI_DB[charB].merges && KANJI_DB[charB].merges[charA]) {
-            mergedChar = KANJI_DB[charB].merges[charA];
-          }
+        for (let nIdx of neighbors) {
+          let neighborCell = boardState[nIdx];
+          if (neighborCell) {
+            const charA = currentCell.char;
+            const charB = neighborCell.char;
 
-          if (mergedChar) {
-            boardState[placedIdx] = { char: mergedChar, player: currentCell.player };
-            boardState[nIdx] = null;
-            
-            setTimeout(() => {
-              const cells = document.querySelectorAll('.cell');
-              if (cells[placedIdx]) cells[placedIdx].classList.add('merge-anim');
-            }, 50);
+            let mergedChar = null;
+            if (KANJI_DB[charA] && KANJI_DB[charA].merges && KANJI_DB[charA].merges[charB]) {
+              mergedChar = KANJI_DB[charA].merges[charB];
+            } else if (KANJI_DB[charB] && KANJI_DB[charB].merges && KANJI_DB[charB].merges[charA]) {
+              mergedChar = KANJI_DB[charB].merges[charA];
+            }
 
-            showMsg(`「${charA}」と「${charB}」が合体して「${mergedChar}」になった！`);
-            break;
+            if (mergedChar) {
+              boardState[targetIdx] = { char: mergedChar, player: currentCell.player };
+              boardState[nIdx] = null; // 隣のマスを吸収
+
+              mergedAny = true;
+              mergedInThisStep = true;
+
+              showMsg(`「${charA}」と「${charB}」が合体！ 『${mergedChar}』へ進化！`);
+              
+              setTimeout(() => {
+                const cells = document.querySelectorAll('.cell');
+                if (cells[targetIdx]) cells[targetIdx].classList.add('merge-anim');
+              }, 50);
+
+              break; // 連鎖継続のためループ
+            }
           }
         }
+
+        if (!mergedInThisStep) break;
+      }
+
+      if (!mergedAny) {
+        showMsg("");
       }
     }
 
-    function getAdjacentIndices(idx) {
+    // 上下左右（4方向）のインデックス取得
+    function getAdjacent4Indices(idx) {
       const row = Math.floor(idx / 5);
       const col = idx % 5;
       const list = [];
 
-      if (row > 0) list.push(idx - 5);
-      if (row < 4) list.push(idx + 5);
-      if (col > 0) list.push(idx - 1);
-      if (col < 4) list.push(idx + 1);
+      if (row > 0) list.push(idx - 5); // 上
+      if (row < 4) list.push(idx + 5); // 下
+      if (col > 0) list.push(idx - 1); // 左
+      if (col < 4) list.push(idx + 1); // 右
 
       return list;
     }
